@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+export type ChannelMode = 'mono' | 'stereo' | 'auto'
+
+export interface ActiveChannels {
+  left: boolean
+  right: boolean
+}
+
 export const useAudioStore = defineStore('audio', () => {
   const isInitialized = ref(false)
   const isStarted = ref(false)
@@ -11,6 +18,14 @@ export const useAudioStore = defineStore('audio', () => {
   const lpfCutoff = ref(12000)
   const minFilterDistance = ref(200) // Minimum 200Hz between HPF and LPF
 
+  // Stereo channel management
+  const channelMode = ref<ChannelMode>('auto')
+  const inputChannelCount = ref(1)
+  const activeChannels = ref<ActiveChannels>({
+    left: true,
+    right: false
+  })
+
   const setHpfCutoff = (frequency: number) => {
     const maxHpf = lpfCutoff.value - minFilterDistance.value
     hpfCutoff.value = Math.max(20, Math.min(maxHpf, frequency))
@@ -19,6 +34,28 @@ export const useAudioStore = defineStore('audio', () => {
   const setLpfCutoff = (frequency: number) => {
     const minLpf = hpfCutoff.value + minFilterDistance.value
     lpfCutoff.value = Math.max(minLpf, Math.min(20000, frequency))
+  }
+
+  const setActiveChannels = (channels: ActiveChannels) => {
+    activeChannels.value = channels
+  }
+
+  const setChannelMode = (mode: ChannelMode) => {
+    channelMode.value = mode
+  }
+
+  const setInputChannelCount = (count: number) => {
+    inputChannelCount.value = count
+  }
+
+  const getEffectiveChannelMode = (): 'mono' | 'stereo' => {
+    if (channelMode.value === 'mono') return 'mono'
+    if (channelMode.value === 'stereo') return 'stereo'
+    
+    // Auto mode: use stereo if both channels active and input is stereo
+    return (inputChannelCount.value >= 2 && activeChannels.value.left && activeChannels.value.right) 
+      ? 'stereo' 
+      : 'mono'
   }
 
   const setError = (message: string) => {
@@ -37,8 +74,15 @@ export const useAudioStore = defineStore('audio', () => {
     hpfCutoff,
     lpfCutoff,
     minFilterDistance,
+    channelMode,
+    inputChannelCount,
+    activeChannels,
     setHpfCutoff,
     setLpfCutoff,
+    setActiveChannels,
+    setChannelMode,
+    setInputChannelCount,
+    getEffectiveChannelMode,
     setError,
     clearError
   }

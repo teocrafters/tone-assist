@@ -21,6 +21,14 @@
       <div class="error-message">{{ audioStore.errorMessage }}</div>
       <button @click="audioStore.clearError" class="error-dismiss">Dismiss</button>
     </div>
+    
+    <div v-if="audioStore.isStarted" class="mode-indicator">
+      {{ audioStore.getEffectiveChannelMode().toUpperCase() }}
+      <span v-if="audioStore.inputChannelCount > 1" class="channel-status">
+        (L: {{ audioStore.activeChannels.left ? '✓' : '✗' }} 
+         R: {{ audioStore.activeChannels.right ? '✓' : '✗' }})
+      </span>
+    </div>
   </div>
 </template>
 
@@ -28,17 +36,20 @@
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useAudioGraph } from '@/composables/useAudioGraph'
 import { useAudioStore } from '@/stores/audioStore'
+import { useSilenceDetector } from '@/composables/useSilenceDetector'
 import { makeLogBands, aggregateBands, frequencyToLogX, logXToFrequency } from '@/utils/logBands'
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 const audioStore = useAudioStore()
-const { analyser, sampleRate, start, setHpfCutoff, setLpfCutoff } = useAudioGraph()
+const { analyserLeft, analyserRight, sampleRate, start, setHpfCutoff, setLpfCutoff, updateAudioRouting } = useAudioGraph()
+const silenceDetector = useSilenceDetector()
 
 const bands = makeLogBands(20, 20000, 120)
 const starting = ref(false)
 let animationId = 0
-let freqData: Float32Array | null = null
+let leftFreqData: Float32Array | null = null
+let rightFreqData: Float32Array | null = null
 
 // Drag state
 let isDragging = false
@@ -90,39 +101,43 @@ function draw() {
   ctx.fillRect(0, 0, width, height)
   
   // Draw RTA if audio is running
-  if (audioStore.isStarted && analyser.value) {
-    const analyserNode = analyser.value
-    
-    if (!freqData || freqData.length !== analyserNode.frequencyBinCount) {
-      freqData = new Float32Array(analyserNode.frequencyBinCount)
+  if (audioStore.isStarted && (analyserLeft.value || analyserRight.value)) {
+    // Get frequency data from both channels
+    if (analyserLeft.value) {
+      if (!leftFreqData || leftFreqData.length !== analyserLeft.value.frequencyBinCount) {
+        leftFreqData = new Float32Array(analyserLeft.value.frequencyBinCount)
+      }
+      analyserLeft.value.getFloatFrequencyData(leftFreqData)
     }
     
-    analyserNode.getFloatFrequencyData(freqData)
-    const aggregated = aggregateBands(freqData, sampleRate.value, analyserNode.fftSize, bands, 'mean')
-    
-    // Draw RTA bars
-    const barWidth = width / aggregated.length
-    ctx.fillStyle = '#39c4ff'
-    
-    for (let i = 0; i < aggregated.length; i++) {
-      const dbValue = aggregated[i] // -100 to 0 dB
-      const normalizedValue = (dbValue + 100) / 100 // 0 to 1
-      const barHeight = Math.max(1, normalizedValue * height * 0.9)
-      
-      const x = i * barWidth
-      const y = height - barHeight
-      
-      // Color coding: blue for normal, green for high levels
-      const intensity = normalizedValue
-      if (intensity > 0.8) {
-        ctx.fillStyle = '#00ff00' // Green for high levels
-      } else if (intensity > 0.6) {
-        ctx.fillStyle = '#ffff00' // Yellow for medium-high levels
-      } else {
-        ctx.fillStyle = '#39c4ff' // Blue for normal levels
+    if (analyserRight.value) {
+      if (!rightFreqData || rightFreqData.length !== analyserRight.value.frequencyBinCount) {
+        rightFreqData = new Float32Array(analyserRight.value.frequencyBinCount)
       }
-      
-      ctx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight)
+      analyserRight.value.getFloatFrequencyData(rightFreqData)
+    }
+    
+    // Update silence detection
+    const activeChannels = silenceDetector.updateSilenceDetection(leftFreqData, rightFreqData)
+    const previousChannels = { ...audioStore.activeChannels }
+    audioStore.setActiveChannels(activeChannels)
+    
+    // Update audio routing if channels changed
+    if (previousChannels.left !== activeChannels.left || previousChannels.right !== activeChannels.right) {
+      updateAudioRouting(activeChannels)
+    }
+    
+    const effectiveMode = audioStore.getEffectiveChannelMode()
+    
+    if (effectiveMode === 'stereo' && activeChannels.left && activeChannels.right) {
+      // Draw stereo RTA (split screen)
+      drawStereoRTA(ctx, width, height, leftFreqData!, rightFreqData!)
+    } else {
+      // Draw mono RTA (single channel)
+      const monoData = activeChannels.left ? leftFreqData : rightFreqData
+      if (monoData) {
+        drawMonoRTA(ctx, width, height, monoData)
+      }
     }
   }
   
@@ -131,6 +146,96 @@ function draw() {
   
   // Continue animation
   animationId = requestAnimationFrame(draw)
+}
+
+function drawMonoRTA(ctx: CanvasRenderingContext2D, width: number, height: number, freqData: Float32Array) {
+  const aggregated = aggregateBands(freqData, sampleRate.value, 16384, bands, 'mean')
+  const barWidth = width / aggregated.length
+  
+  for (let i = 0; i < aggregated.length; i++) {
+    const dbValue = aggregated[i] // -100 to 0 dB
+    const normalizedValue = (dbValue + 100) / 100 // 0 to 1
+    const barHeight = Math.max(1, normalizedValue * height * 0.9)
+    
+    const x = i * barWidth
+    const y = height - barHeight
+    
+    // Color coding: blue for normal, green for high levels
+    const intensity = normalizedValue
+    if (intensity > 0.8) {
+      ctx.fillStyle = '#00ff00' // Green for high levels
+    } else if (intensity > 0.6) {
+      ctx.fillStyle = '#ffff00' // Yellow for medium-high levels
+    } else {
+      ctx.fillStyle = '#39c4ff' // Blue for normal levels
+    }
+    
+    ctx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight)
+  }
+}
+
+function drawStereoRTA(ctx: CanvasRenderingContext2D, width: number, height: number, leftData: Float32Array, rightData: Float32Array) {
+  const channelHeight = height / 2
+  const aggregatedLeft = aggregateBands(leftData, sampleRate.value, 16384, bands, 'mean')
+  const aggregatedRight = aggregateBands(rightData, sampleRate.value, 16384, bands, 'mean')
+  const barWidth = width / aggregatedLeft.length
+  
+  // Draw left channel (top half)
+  for (let i = 0; i < aggregatedLeft.length; i++) {
+    const dbValue = aggregatedLeft[i]
+    const normalizedValue = (dbValue + 100) / 100
+    const barHeight = Math.max(1, normalizedValue * channelHeight * 0.85)
+    
+    const x = i * barWidth
+    const y = channelHeight - barHeight
+    
+    const intensity = normalizedValue
+    if (intensity > 0.8) {
+      ctx.fillStyle = '#00ff00'
+    } else if (intensity > 0.6) {
+      ctx.fillStyle = '#ffff00'
+    } else {
+      ctx.fillStyle = '#4fc3f7' // Slightly different blue for left
+    }
+    
+    ctx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight)
+  }
+  
+  // Draw right channel (bottom half)
+  for (let i = 0; i < aggregatedRight.length; i++) {
+    const dbValue = aggregatedRight[i]
+    const normalizedValue = (dbValue + 100) / 100
+    const barHeight = Math.max(1, normalizedValue * channelHeight * 0.85)
+    
+    const x = i * barWidth
+    const y = height - barHeight
+    
+    const intensity = normalizedValue
+    if (intensity > 0.8) {
+      ctx.fillStyle = '#00ff00'
+    } else if (intensity > 0.6) {
+      ctx.fillStyle = '#ffff00'
+    } else {
+      ctx.fillStyle = '#29b6f6' // Slightly different blue for right
+    }
+    
+    ctx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight)
+  }
+  
+  // Draw separator line
+  ctx.strokeStyle = '#555555'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(0, channelHeight)
+  ctx.lineTo(width, channelHeight)
+  ctx.stroke()
+  
+  // Draw channel labels
+  ctx.fillStyle = '#ffffff'
+  ctx.font = '14px monospace'
+  ctx.textAlign = 'left'
+  ctx.fillText('L', 5, 20)
+  ctx.fillText('R', 5, channelHeight + 20)
 }
 
 function drawFilterOverlay(ctx: CanvasRenderingContext2D, width: number, height: number) {
@@ -169,19 +274,41 @@ function drawFilterOverlay(ctx: CanvasRenderingContext2D, width: number, height:
   const hpfLabel = `${Math.round(audioStore.hpfCutoff)}Hz`
   const lpfLabel = `${Math.round(audioStore.lpfCutoff)}Hz`
   
-  ctx.fillText(hpfLabel, hpfX, height - 10)
-  ctx.fillText(lpfLabel, lpfX, height - 10)
+  const effectiveMode = audioStore.getEffectiveChannelMode()
+  if (effectiveMode === 'stereo') {
+    ctx.fillText(hpfLabel, hpfX, height / 2 - 5)
+    ctx.fillText(lpfLabel, lpfX, height / 2 - 5)
+  } else {
+    ctx.fillText(hpfLabel, hpfX, height - 10)
+    ctx.fillText(lpfLabel, lpfX, height - 10)
+  }
   
   // Draw draggable handles
   ctx.fillStyle = '#ff4444'
   const handleHeight = 30
-  const handleY = height / 2 - handleHeight / 2
   
-  // HPF handle
-  ctx.fillRect(hpfX - HANDLE_WIDTH/2, handleY, HANDLE_WIDTH, handleHeight)
-  
-  // LPF handle
-  ctx.fillRect(lpfX - HANDLE_WIDTH/2, handleY, HANDLE_WIDTH, handleHeight)
+  if (effectiveMode === 'stereo') {
+    // Draw handles for both channels
+    const topHandleY = height / 4 - handleHeight / 2
+    const bottomHandleY = (3 * height) / 4 - handleHeight / 2
+    
+    // HPF handles
+    ctx.fillRect(hpfX - HANDLE_WIDTH/2, topHandleY, HANDLE_WIDTH, handleHeight)
+    ctx.fillRect(hpfX - HANDLE_WIDTH/2, bottomHandleY, HANDLE_WIDTH, handleHeight)
+    
+    // LPF handles
+    ctx.fillRect(lpfX - HANDLE_WIDTH/2, topHandleY, HANDLE_WIDTH, handleHeight)
+    ctx.fillRect(lpfX - HANDLE_WIDTH/2, bottomHandleY, HANDLE_WIDTH, handleHeight)
+  } else {
+    // Draw single handles for mono
+    const handleY = height / 2 - handleHeight / 2
+    
+    // HPF handle
+    ctx.fillRect(hpfX - HANDLE_WIDTH/2, handleY, HANDLE_WIDTH, handleHeight)
+    
+    // LPF handle
+    ctx.fillRect(lpfX - HANDLE_WIDTH/2, handleY, HANDLE_WIDTH, handleHeight)
+  }
 }
 
 function onPointerDown(event: PointerEvent) {
@@ -190,22 +317,33 @@ function onPointerDown(event: PointerEvent) {
   
   const rect = canvas.getBoundingClientRect()
   const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
   const width = rect.width
+  const height = rect.height
   
   const hpfX = frequencyToLogX(audioStore.hpfCutoff, 20, 20000, width)
   const lpfX = frequencyToLogX(audioStore.lpfCutoff, 20, 20000, width)
   
-  // Check if clicking on HPF handle
-  if (Math.abs(x - hpfX) <= HANDLE_WIDTH / 2) {
-    isDragging = true
-    dragType = 'hpf'
-    canvas.setPointerCapture(event.pointerId)
-  }
-  // Check if clicking on LPF handle
-  else if (Math.abs(x - lpfX) <= HANDLE_WIDTH / 2) {
-    isDragging = true
-    dragType = 'lpf'
-    canvas.setPointerCapture(event.pointerId)
+  // Calculate handle positions (center vertically or per channel)
+  const effectiveMode = audioStore.getEffectiveChannelMode()
+  const handleY = effectiveMode === 'stereo' ? height / 4 : height / 2
+  const handleHeight = 30
+  
+  // Check if clicking near handles (allow some vertical tolerance)
+  const yTolerance = effectiveMode === 'stereo' ? height / 2 : height
+  if (Math.abs(y - handleY) <= yTolerance && Math.abs(y - handleY) <= handleHeight) {
+    // Check if clicking on HPF handle
+    if (Math.abs(x - hpfX) <= HANDLE_WIDTH / 2) {
+      isDragging = true
+      dragType = 'hpf'
+      canvas.setPointerCapture(event.pointerId)
+    }
+    // Check if clicking on LPF handle
+    else if (Math.abs(x - lpfX) <= HANDLE_WIDTH / 2) {
+      isDragging = true
+      dragType = 'lpf'
+      canvas.setPointerCapture(event.pointerId)
+    }
   }
 }
 
@@ -348,5 +486,25 @@ onBeforeUnmount(() => {
 .error-dismiss:hover {
   background: white;
   color: red;
+}
+
+.mode-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 15;
+}
+
+.channel-status {
+  font-weight: normal;
+  opacity: 0.8;
+  margin-left: 5px;
 }
 </style>
