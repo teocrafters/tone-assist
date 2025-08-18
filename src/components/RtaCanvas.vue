@@ -42,7 +42,7 @@ import { makeLogBands, aggregateBands, frequencyToLogX, logXToFrequency } from '
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 const audioStore = useAudioStore()
-const { analyserLeft, analyserRight, sampleRate, start, setHpfCutoff, setLpfCutoff, updateAudioRouting } = useAudioGraph()
+const { analyserLeft, analyserRight, sampleRate, start, setHpfCutoff, setLpfCutoff, updateAudioRouting, setBoost } = useAudioGraph()
 const silenceDetector = useSilenceDetector()
 
 const bands = makeLogBands(20, 20000, 120)
@@ -144,6 +144,9 @@ function draw() {
   // Draw filter overlay
   drawFilterOverlay(ctx, width, height)
   
+  // Draw boost button
+  drawBoostButton(ctx, width, height)
+  
   // Continue animation
   animationId = requestAnimationFrame(draw)
 }
@@ -238,6 +241,29 @@ function drawStereoRTA(ctx: CanvasRenderingContext2D, width: number, height: num
   ctx.fillText('R', 5, channelHeight + 20)
 }
 
+function drawBoostButton(ctx: CanvasRenderingContext2D, width: number, _height: number) {
+  const buttonWidth = 60
+  const buttonHeight = 30
+  const x = width - buttonWidth - 10
+  const y = 50 // Below mode indicator
+  
+  // Button background
+  ctx.fillStyle = audioStore.boostEnabled ? '#ff4444' : '#444444'
+  ctx.fillRect(x, y, buttonWidth, buttonHeight)
+  
+  // Button border
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 2
+  ctx.strokeRect(x, y, buttonWidth, buttonHeight)
+  
+  // Button text
+  ctx.fillStyle = '#ffffff'
+  ctx.font = 'bold 12px monospace'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('+20dB', x + buttonWidth / 2, y + buttonHeight / 2)
+}
+
 function drawFilterOverlay(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const hpfX = frequencyToLogX(audioStore.hpfCutoff, 20, 20000, width)
   const lpfX = frequencyToLogX(audioStore.lpfCutoff, 20, 20000, width)
@@ -326,6 +352,21 @@ function onPointerDown(event: PointerEvent) {
   
   // Calculate handle positions (center vertically or per channel)
   const effectiveMode = audioStore.getEffectiveChannelMode()
+  // Check if clicking on boost button first
+  const boostButtonWidth = 60
+  const boostButtonHeight = 30
+  const boostButtonX = width - boostButtonWidth - 10
+  const boostButtonY = 50
+  
+  if (x >= boostButtonX && x <= boostButtonX + boostButtonWidth && 
+      y >= boostButtonY && y <= boostButtonY + boostButtonHeight) {
+    const newState = audioStore.toggleBoost()
+    setBoost(newState)
+    console.log(`Boost toggled: ${newState}`)
+    return
+  }
+  
+  // Check filter handle clicks
   const handleY = effectiveMode === 'stereo' ? height / 4 : height / 2
   const handleHeight = 30
   

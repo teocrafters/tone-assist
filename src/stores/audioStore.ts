@@ -26,6 +26,9 @@ export const useAudioStore = defineStore('audio', () => {
     right: false
   })
 
+  // Boost control
+  const boostEnabled = ref(false)
+
   const setHpfCutoff = (frequency: number) => {
     const maxHpf = lpfCutoff.value - minFilterDistance.value
     hpfCutoff.value = Math.max(20, Math.min(maxHpf, frequency))
@@ -58,6 +61,15 @@ export const useAudioStore = defineStore('audio', () => {
       : 'mono'
   }
 
+  const toggleBoost = (): boolean => {
+    boostEnabled.value = !boostEnabled.value
+    return boostEnabled.value
+  }
+
+  const setBoost = (enabled: boolean) => {
+    boostEnabled.value = enabled
+  }
+
   const setError = (message: string) => {
     errorMessage.value = message
   }
@@ -77,12 +89,15 @@ export const useAudioStore = defineStore('audio', () => {
     channelMode,
     inputChannelCount,
     activeChannels,
+    boostEnabled,
     setHpfCutoff,
     setLpfCutoff,
     setActiveChannels,
     setChannelMode,
     setInputChannelCount,
     getEffectiveChannelMode,
+    toggleBoost,
+    setBoost,
     setError,
     clearError
   }

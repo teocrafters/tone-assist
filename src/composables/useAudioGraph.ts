@@ -18,6 +18,7 @@ export function useAudioGraph() {
   // Channel routing nodes
   let channelSplitter: ChannelSplitterNode | null = null
   let channelMerger: ChannelMergerNode | null = null
+  let boostGainNode: GainNode | null = null
   
   const audioStore = useAudioStore()
   const sampleRate = ref(48000)
@@ -151,14 +152,18 @@ export function useAudioGraph() {
       
       rightNode.connect(analyserRight.value)
       
+      // Create boost gain node
+      boostGainNode = new GainNode(audioCtx.value, { gain: 1.0 })
+      
       // Initial routing setup - will be updated dynamically
       updateAudioRouting({
         left: true,
         right: actualChannels >= 2
       })
       
-      // Connect merged output to destination
-      channelMerger.connect(audioCtx.value.destination)
+      // Connect merged output through boost gain to destination
+      channelMerger.connect(boostGainNode)
+      boostGainNode.connect(audioCtx.value.destination)
 
       audioStore.isInitialized = true
 
@@ -279,6 +284,23 @@ export function useAudioGraph() {
     console.log(`Audio routing updated: ${effectiveMode} mode, L:${activeChannels.left} R:${activeChannels.right}`)
   }
 
+  function setBoost(enabled: boolean) {
+    if (!boostGainNode || !audioCtx.value) {
+      console.warn('Boost gain node not initialized')
+      return
+    }
+
+    const targetGain = enabled ? 10.0 : 1.0 // 20dB = 20log10(10) = 10x
+    const currentTime = audioCtx.value.currentTime
+    
+    // Smooth transition over 50ms to avoid clicks/pops
+    boostGainNode.gain.cancelScheduledValues(currentTime)
+    boostGainNode.gain.setValueAtTime(boostGainNode.gain.value, currentTime)
+    boostGainNode.gain.linearRampToValueAtTime(targetGain, currentTime + 0.05)
+    
+    console.log(`Boost ${enabled ? 'enabled' : 'disabled'}: ${targetGain}x gain (${enabled ? 20 : 0}dB)`)
+  }
+
   return {
     audioCtx,
     source,
@@ -290,6 +312,7 @@ export function useAudioGraph() {
     stop,
     setHpfCutoff,
     setLpfCutoff,
-    updateAudioRouting
+    updateAudioRouting,
+    setBoost
   }
 }
