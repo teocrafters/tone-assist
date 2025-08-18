@@ -16,7 +16,7 @@ export const useAudioStore = defineStore('audio', () => {
   
   const hpfCutoff = ref(80)
   const lpfCutoff = ref(12000)
-  const minFilterDistance = ref(200) // Minimum 200Hz between HPF and LPF
+  const minFilterDistance = ref(10) // Minimum 10Hz between HPF and LPF
 
   // Stereo channel management
   const channelMode = ref<ChannelMode>('auto')
