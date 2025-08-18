@@ -5,9 +5,13 @@ export function useAudioGraph() {
   const audioCtx = ref<AudioContext | null>(null)
   const source = ref<MediaStreamAudioSourceNode | null>(null)
   
-  // Stereo analyzers
-  const analyserLeft = ref<AnalyserNode | null>(null)
-  const analyserRight = ref<AnalyserNode | null>(null)
+  // Input analyzers (before filters)
+  const analyserLeftInput = ref<AnalyserNode | null>(null)
+  const analyserRightInput = ref<AnalyserNode | null>(null)
+  
+  // Output analyzers (after filters)
+  const analyserLeftOutput = ref<AnalyserNode | null>(null)
+  const analyserRightOutput = ref<AnalyserNode | null>(null)
   
   // Filter chains for both channels
   const leftHpfNodes: BiquadFilterNode[] = []
@@ -98,15 +102,30 @@ export function useAudioGraph() {
         rightLpfNodes.push(lpf)
       }
 
-      // Create analyzers for both channels
-      analyserLeft.value = new AnalyserNode(audioCtx.value, {
+      // Create input analyzers (before filters)
+      analyserLeftInput.value = new AnalyserNode(audioCtx.value, {
         fftSize: 16384,
         smoothingTimeConstant: 0.85,
         minDecibels: -100,
         maxDecibels: -20
       })
       
-      analyserRight.value = new AnalyserNode(audioCtx.value, {
+      analyserRightInput.value = new AnalyserNode(audioCtx.value, {
+        fftSize: 16384,
+        smoothingTimeConstant: 0.85,
+        minDecibels: -100,
+        maxDecibels: -20
+      })
+      
+      // Create output analyzers (after filters)
+      analyserLeftOutput.value = new AnalyserNode(audioCtx.value, {
+        fftSize: 16384,
+        smoothingTimeConstant: 0.85,
+        minDecibels: -100,
+        maxDecibels: -20
+      })
+      
+      analyserRightOutput.value = new AnalyserNode(audioCtx.value, {
         fftSize: 16384,
         smoothingTimeConstant: 0.85,
         minDecibels: -100,
@@ -116,7 +135,11 @@ export function useAudioGraph() {
       // Connect the stereo audio graph
       source.value.connect(channelSplitter)
       
-      // LEFT channel chain: splitter[0] -> HPF cascade -> LPF cascade -> analyser -> merger[0]
+      // Connect input analyzers directly to splitter outputs
+      channelSplitter.connect(analyserLeftInput.value, 0)
+      channelSplitter.connect(analyserRightInput.value, 1)
+      
+      // LEFT channel chain: splitter[0] -> HPF cascade -> LPF cascade -> output analyser -> merger[0]
       let leftNode: AudioNode = channelSplitter
       leftHpfNodes.forEach((node, index) => {
         if (index === 0) {
@@ -132,9 +155,9 @@ export function useAudioGraph() {
         leftNode = node
       })
       
-      leftNode.connect(analyserLeft.value)
+      leftNode.connect(analyserLeftOutput.value)
       
-      // RIGHT channel chain: splitter[1] -> HPF cascade -> LPF cascade -> analyser -> merger[1]
+      // RIGHT channel chain: splitter[1] -> HPF cascade -> LPF cascade -> output analyser -> merger[1]
       let rightNode: AudioNode = channelSplitter
       rightHpfNodes.forEach((node, index) => {
         if (index === 0) {
@@ -150,7 +173,7 @@ export function useAudioGraph() {
         rightNode = node
       })
       
-      rightNode.connect(analyserRight.value)
+      rightNode.connect(analyserRightOutput.value)
       
       // Create boost gain node
       boostGainNode = new GainNode(audioCtx.value, { gain: 1.0 })
@@ -235,14 +258,14 @@ export function useAudioGraph() {
   }
 
   function updateAudioRouting(activeChannels: ActiveChannels) {
-    if (!channelMerger || !analyserLeft.value || !analyserRight.value) {
+    if (!channelMerger || !analyserLeftOutput.value || !analyserRightOutput.value) {
       return
     }
 
     // Disconnect all existing connections from analyzers to merger
     try {
-      analyserLeft.value.disconnect(channelMerger)
-      analyserRight.value.disconnect(channelMerger)
+      analyserLeftOutput.value.disconnect(channelMerger)
+      analyserRightOutput.value.disconnect(channelMerger)
     } catch (e) {
       // Connections might not exist yet, that's ok
     }
@@ -253,24 +276,24 @@ export function useAudioGraph() {
       // Mono routing: duplicate active channel to both outputs
       if (activeChannels.left && !activeChannels.right) {
         // Left channel active - duplicate to both outputs
-        analyserLeft.value.connect(channelMerger, 0, 0) // L→L
-        analyserLeft.value.connect(channelMerger, 0, 1) // L→R (duplicate)
+        analyserLeftOutput.value.connect(channelMerger, 0, 0) // L→L
+        analyserLeftOutput.value.connect(channelMerger, 0, 1) // L→R (duplicate)
       } else if (activeChannels.right && !activeChannels.left) {
         // Right channel active - duplicate to both outputs
-        analyserRight.value.connect(channelMerger, 0, 0) // R→L (duplicate)
-        analyserRight.value.connect(channelMerger, 0, 1) // R→R
+        analyserRightOutput.value.connect(channelMerger, 0, 0) // R→L (duplicate)
+        analyserRightOutput.value.connect(channelMerger, 0, 1) // R→R
       } else if (activeChannels.left) {
         // Default to left if both or neither active
-        analyserLeft.value.connect(channelMerger, 0, 0) // L→L
-        analyserLeft.value.connect(channelMerger, 0, 1) // L→R (duplicate)
+        analyserLeftOutput.value.connect(channelMerger, 0, 0) // L→L
+        analyserLeftOutput.value.connect(channelMerger, 0, 1) // L→R (duplicate)
       }
     } else {
       // Stereo routing: normal L→L, R→R connections
       if (activeChannels.left) {
-        analyserLeft.value.connect(channelMerger, 0, 0) // L→L
+        analyserLeftOutput.value.connect(channelMerger, 0, 0) // L→L
       }
       if (activeChannels.right) {
-        analyserRight.value.connect(channelMerger, 0, 1) // R→R
+        analyserRightOutput.value.connect(channelMerger, 0, 1) // R→R
       }
       
       // If only one channel is active in stereo mode, still maintain stereo but mute the inactive side
@@ -304,8 +327,10 @@ export function useAudioGraph() {
   return {
     audioCtx,
     source,
-    analyserLeft,
-    analyserRight,
+    analyserLeftInput,
+    analyserRightInput,
+    analyserLeftOutput,
+    analyserRightOutput,
     sampleRate,
     init,
     start,

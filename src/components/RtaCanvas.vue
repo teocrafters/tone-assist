@@ -42,7 +42,7 @@ import { makeLogBands, aggregateBands, frequencyToLogX, logXToFrequency } from '
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 const audioStore = useAudioStore()
-const { analyserLeft, analyserRight, sampleRate, start, setHpfCutoff, setLpfCutoff, updateAudioRouting, setBoost } = useAudioGraph()
+const { analyserLeftInput, analyserRightInput, analyserLeftOutput, analyserRightOutput, sampleRate, start, setHpfCutoff, setLpfCutoff, updateAudioRouting, setBoost } = useAudioGraph()
 const silenceDetector = useSilenceDetector()
 
 const bands = makeLogBands(20, 20000, 120)
@@ -101,20 +101,38 @@ function draw() {
   ctx.fillRect(0, 0, width, height)
   
   // Draw RTA if audio is running
-  if (audioStore.isStarted && (analyserLeft.value || analyserRight.value)) {
+  if (audioStore.isStarted && (analyserLeftInput.value || analyserRightInput.value)) {
+    // Select analyzers based on RTA mode
+    const leftAnalyser = audioStore.rtaMode === 'input' ? analyserLeftInput.value : analyserLeftOutput.value
+    const rightAnalyser = audioStore.rtaMode === 'input' ? analyserRightInput.value : analyserRightOutput.value
+    
     // Get frequency data from both channels
-    if (analyserLeft.value) {
-      if (!leftFreqData || leftFreqData.length !== analyserLeft.value.frequencyBinCount) {
-        leftFreqData = new Float32Array(analyserLeft.value.frequencyBinCount)
+    if (leftAnalyser) {
+      if (!leftFreqData || leftFreqData.length !== leftAnalyser.frequencyBinCount) {
+        leftFreqData = new Float32Array(leftAnalyser.frequencyBinCount)
       }
-      analyserLeft.value.getFloatFrequencyData(leftFreqData)
+      leftAnalyser.getFloatFrequencyData(leftFreqData)
+      
+      // Apply boost compensation if showing output mode and boost is enabled
+      if (audioStore.rtaMode === 'output' && audioStore.boostEnabled) {
+        for (let i = 0; i < leftFreqData.length; i++) {
+          leftFreqData[i] += 20 // Add 20dB
+        }
+      }
     }
     
-    if (analyserRight.value) {
-      if (!rightFreqData || rightFreqData.length !== analyserRight.value.frequencyBinCount) {
-        rightFreqData = new Float32Array(analyserRight.value.frequencyBinCount)
+    if (rightAnalyser) {
+      if (!rightFreqData || rightFreqData.length !== rightAnalyser.frequencyBinCount) {
+        rightFreqData = new Float32Array(rightAnalyser.frequencyBinCount)
       }
-      analyserRight.value.getFloatFrequencyData(rightFreqData)
+      rightAnalyser.getFloatFrequencyData(rightFreqData)
+      
+      // Apply boost compensation if showing output mode and boost is enabled
+      if (audioStore.rtaMode === 'output' && audioStore.boostEnabled) {
+        for (let i = 0; i < rightFreqData.length; i++) {
+          rightFreqData[i] += 20 // Add 20dB
+        }
+      }
     }
     
     // Update silence detection
@@ -146,6 +164,9 @@ function draw() {
   
   // Draw boost button
   drawBoostButton(ctx, width, height)
+  
+  // Draw RTA mode button
+  drawRtaModeButton(ctx, width, height)
   
   // Continue animation
   animationId = requestAnimationFrame(draw)
@@ -239,6 +260,29 @@ function drawStereoRTA(ctx: CanvasRenderingContext2D, width: number, height: num
   ctx.textAlign = 'left'
   ctx.fillText('L', 5, 20)
   ctx.fillText('R', 5, channelHeight + 20)
+}
+
+function drawRtaModeButton(ctx: CanvasRenderingContext2D, _width: number, _height: number) {
+  const buttonWidth = 70
+  const buttonHeight = 30
+  const x = 10
+  const y = 10
+  
+  // Button background
+  ctx.fillStyle = audioStore.rtaMode === 'output' ? '#2196F3' : '#4CAF50'
+  ctx.fillRect(x, y, buttonWidth, buttonHeight)
+  
+  // Button border
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 2
+  ctx.strokeRect(x, y, buttonWidth, buttonHeight)
+  
+  // Button text
+  ctx.fillStyle = '#ffffff'
+  ctx.font = 'bold 11px monospace'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(audioStore.rtaMode.toUpperCase(), x + buttonWidth / 2, y + buttonHeight / 2)
 }
 
 function drawBoostButton(ctx: CanvasRenderingContext2D, width: number, _height: number) {
@@ -352,7 +396,20 @@ function onPointerDown(event: PointerEvent) {
   
   // Calculate handle positions (center vertically or per channel)
   const effectiveMode = audioStore.getEffectiveChannelMode()
-  // Check if clicking on boost button first
+  // Check if clicking on RTA mode button first
+  const rtaButtonWidth = 70
+  const rtaButtonHeight = 30
+  const rtaButtonX = 10
+  const rtaButtonY = 10
+  
+  if (x >= rtaButtonX && x <= rtaButtonX + rtaButtonWidth && 
+      y >= rtaButtonY && y <= rtaButtonY + rtaButtonHeight) {
+    const newMode = audioStore.toggleRtaMode()
+    console.log(`RTA mode toggled: ${newMode}`)
+    return
+  }
+  
+  // Check if clicking on boost button
   const boostButtonWidth = 60
   const boostButtonHeight = 30
   const boostButtonX = width - boostButtonWidth - 10

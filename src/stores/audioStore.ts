@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export type ChannelMode = 'mono' | 'stereo' | 'auto'
+export type RtaMode = 'input' | 'output'
 
 export interface ActiveChannels {
   left: boolean
@@ -28,6 +29,9 @@ export const useAudioStore = defineStore('audio', () => {
 
   // Boost control
   const boostEnabled = ref(false)
+
+  // RTA display mode
+  const rtaMode = ref<RtaMode>('output')
 
   const setHpfCutoff = (frequency: number) => {
     const maxHpf = lpfCutoff.value - minFilterDistance.value
@@ -70,6 +74,15 @@ export const useAudioStore = defineStore('audio', () => {
     boostEnabled.value = enabled
   }
 
+  const toggleRtaMode = (): RtaMode => {
+    rtaMode.value = rtaMode.value === 'input' ? 'output' : 'input'
+    return rtaMode.value
+  }
+
+  const setRtaMode = (mode: RtaMode) => {
+    rtaMode.value = mode
+  }
+
   const setError = (message: string) => {
     errorMessage.value = message
   }
@@ -90,6 +103,7 @@ export const useAudioStore = defineStore('audio', () => {
     inputChannelCount,
     activeChannels,
     boostEnabled,
+    rtaMode,
     setHpfCutoff,
     setLpfCutoff,
     setActiveChannels,
@@ -98,6 +112,8 @@ export const useAudioStore = defineStore('audio', () => {
     getEffectiveChannelMode,
     toggleBoost,
     setBoost,
+    toggleRtaMode,
+    setRtaMode,
     setError,
     clearError
   }
