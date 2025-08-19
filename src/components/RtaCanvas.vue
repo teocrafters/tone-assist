@@ -51,10 +51,18 @@ let animationId = 0
 let leftFreqData: Float32Array | null = null
 let rightFreqData: Float32Array | null = null
 
+// Hover/touch tooltip state
+const hoverPosition = ref<{x: number, y: number} | null>(null)
+const hoverInfo = ref<{frequency: number, db: number, channel?: 'L' | 'R'} | null>(null)
+let lastAggregatedLeft: Float32Array | null = null
+let lastAggregatedRight: Float32Array | null = null
+let lastAggregatedMono: Float32Array | null = null
+
 // Drag state
 let isDragging = false
 let dragType: 'hpf' | 'lpf' | null = null
 const HANDLE_WIDTH = 20 // pixels
+
 
 async function startAudio() {
   starting.value = true
@@ -168,12 +176,42 @@ function draw() {
   // Draw RTA mode button
   drawRtaModeButton(ctx, width, height)
   
+  // Draw tooltip if hovering
+  if (hoverPosition.value && hoverInfo.value && audioStore.isStarted) {
+    // Recalculate dB value with fresh audio data for reactivity
+    const effectiveMode = audioStore.getEffectiveChannelMode()
+    const aggregatedData = effectiveMode === 'stereo' ? 
+      (hoverPosition.value.y <= height / 2 ? lastAggregatedLeft : lastAggregatedRight) : 
+      lastAggregatedMono
+    
+    const freshDbResult = getDbAtX(
+      hoverPosition.value.x, 
+      width, 
+      aggregatedData, 
+      effectiveMode, 
+      height, 
+      hoverPosition.value.y
+    )
+    
+    drawTooltip(
+      ctx, 
+      hoverPosition.value.x, 
+      hoverPosition.value.y,
+      hoverInfo.value.frequency, // Keep stable frequency
+      freshDbResult.db, // Use fresh dB value
+      width,
+      height,
+      freshDbResult.channel
+    )
+  }
+  
   // Continue animation
   animationId = requestAnimationFrame(draw)
 }
 
 function drawMonoRTA(ctx: CanvasRenderingContext2D, width: number, height: number, freqData: Float32Array) {
   const aggregated = aggregateBands(freqData, sampleRate.value, 16384, bands, 'mean')
+  lastAggregatedMono = aggregated // Store for tooltip
   const barWidth = width / aggregated.length
   
   for (let i = 0; i < aggregated.length; i++) {
@@ -202,6 +240,9 @@ function drawStereoRTA(ctx: CanvasRenderingContext2D, width: number, height: num
   const channelHeight = height / 2
   const aggregatedLeft = aggregateBands(leftData, sampleRate.value, 16384, bands, 'mean')
   const aggregatedRight = aggregateBands(rightData, sampleRate.value, 16384, bands, 'mean')
+  // Store for tooltip
+  lastAggregatedLeft = aggregatedLeft
+  lastAggregatedRight = aggregatedRight
   const barWidth = width / aggregatedLeft.length
   
   // Draw left channel (top half)
@@ -260,6 +301,63 @@ function drawStereoRTA(ctx: CanvasRenderingContext2D, width: number, height: num
   ctx.textAlign = 'left'
   ctx.fillText('L', 5, 20)
   ctx.fillText('R', 5, channelHeight + 20)
+}
+
+function drawTooltip(ctx: CanvasRenderingContext2D, x: number, y: number, freq: number, db: number, canvasWidth: number, canvasHeight: number, channel?: 'L' | 'R') {
+  // Format frequency
+  const freqText = freq >= 1000 ? 
+    `${(freq/1000).toFixed(freq >= 10000 ? 0 : 1)}kHz` : 
+    `${Math.round(freq)}Hz`
+  
+  // Format dB
+  const dbText = `${db.toFixed(1)}dB`
+  
+  // Format channel
+  const channelText = channel ? ` (${channel})` : ''
+  
+  const text = `${freqText} | ${dbText}${channelText}`
+  
+  // Measure text
+  const padding = 8
+  ctx.font = 'bold 12px monospace'
+  const metrics = ctx.measureText(text)
+  const boxWidth = metrics.width + padding * 2
+  const boxHeight = 24
+  
+  // Position tooltip (above cursor by default)
+  let boxX = x - boxWidth / 2
+  let boxY = y - boxHeight - 12
+  
+  // Clamp to canvas boundaries
+  boxX = Math.max(5, Math.min(canvasWidth - boxWidth - 5, boxX))
+  if (boxY < 5) {
+    boxY = y + 12 // Show below if not enough space above
+  }
+  
+  // Draw tooltip background
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.95)'
+  ctx.fillRect(boxX, boxY, boxWidth, boxHeight)
+  
+  // Draw tooltip border
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 1
+  ctx.strokeRect(boxX, boxY, boxWidth, boxHeight)
+  
+  // Draw tooltip text
+  ctx.fillStyle = '#ffffff'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, boxX + boxWidth / 2, boxY + boxHeight / 2)
+  
+  // Draw vertical line at cursor position
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
+  ctx.lineWidth = 1
+  ctx.setLineDash([3, 3])
+  ctx.beginPath()
+  ctx.moveTo(x, 90) // Start below buttons
+  ctx.lineTo(x, canvasHeight - 30) // End above filter labels
+  ctx.stroke()
+  ctx.setLineDash([])
 }
 
 function drawRtaModeButton(ctx: CanvasRenderingContext2D, _width: number, _height: number) {
@@ -445,20 +543,102 @@ function onPointerDown(event: PointerEvent) {
   }
 }
 
-function onPointerMove(event: PointerEvent) {
-  if (!isDragging || !dragType) return
+function getFrequencyAtX(x: number, width: number): number {
+  const normalizedX = x / width
+  const bandIndex = Math.floor(normalizedX * bands.length)
+  if (bandIndex >= 0 && bandIndex < bands.length) {
+    return bands[bandIndex].fCenter
+  }
+  return 0
+}
+
+function getDbAtX(x: number, width: number, aggregatedData: Float32Array | null, effectiveMode: 'mono' | 'stereo', canvasHeight: number, y: number): {db: number, channel?: 'L' | 'R'} {
+  if (!aggregatedData) return { db: -100 }
   
+  const normalizedX = x / width
+  const bandIndex = Math.floor(normalizedX * aggregatedData.length)
+  
+  if (bandIndex < 0 || bandIndex >= aggregatedData.length) {
+    return { db: -100 }
+  }
+  
+  let channel: 'L' | 'R' | undefined = undefined
+  
+  // For stereo mode, determine which channel based on Y position
+  if (effectiveMode === 'stereo') {
+    const channelHeight = canvasHeight / 2
+    if (y <= channelHeight) {
+      channel = 'L'
+      // Use left channel data if available
+      if (lastAggregatedLeft && bandIndex < lastAggregatedLeft.length) {
+        return { db: lastAggregatedLeft[bandIndex], channel }
+      }
+    } else {
+      channel = 'R'
+      // Use right channel data if available
+      if (lastAggregatedRight && bandIndex < lastAggregatedRight.length) {
+        return { db: lastAggregatedRight[bandIndex], channel }
+      }
+    }
+  }
+  
+  return { db: aggregatedData[bandIndex], channel }
+}
+
+function isOverButton(x: number, y: number, width: number, _height: number): boolean {
+  // RTA mode button (top left)
+  if (x >= 10 && x <= 80 && y >= 10 && y <= 40) return true
+  
+  // Boost button (top right)
+  if (x >= width - 70 && x <= width - 10 && y >= 50 && y <= 80) return true
+  
+  // Mode indicator area
+  if (x >= width - 150 && x <= width - 10 && y >= 10 && y <= 40) return true
+  
+  return false
+}
+
+function onPointerMove(event: PointerEvent) {
   const canvas = canvasRef.value
   if (!canvas) return
   
   const rect = canvas.getBoundingClientRect()
-  const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left))
-  const frequency = logXToFrequency(x, 20, 20000, rect.width)
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
   
-  if (dragType === 'hpf') {
-    setHpfCutoff(frequency)
-  } else if (dragType === 'lpf') {
-    setLpfCutoff(frequency)
+  if (isDragging && dragType) {
+    // Handle dragging filters
+    const clampedX = Math.max(0, Math.min(rect.width, x))
+    const frequency = logXToFrequency(clampedX, 20, 20000, rect.width)
+    
+    if (dragType === 'hpf') {
+      setHpfCutoff(frequency)
+    } else if (dragType === 'lpf') {
+      setLpfCutoff(frequency)
+    }
+  } else {
+    // Handle hover for tooltip
+    const effectiveMode = audioStore.getEffectiveChannelMode()
+    const inRtaArea = y > 90 && !isOverButton(x, y, rect.width, rect.height)
+    
+    if (inRtaArea && audioStore.isStarted) {
+      const freq = getFrequencyAtX(x, rect.width)
+      const aggregatedData = effectiveMode === 'stereo' ? 
+        (y <= rect.height / 2 ? lastAggregatedLeft : lastAggregatedRight) : 
+        lastAggregatedMono
+      
+      const dbResult = getDbAtX(x, rect.width, aggregatedData, effectiveMode, rect.height, y)
+      
+      hoverInfo.value = {
+        frequency: freq,
+        db: dbResult.db,
+        channel: dbResult.channel
+      }
+      hoverPosition.value = { x, y }
+    } else {
+      hoverInfo.value = null
+      hoverPosition.value = null
+    }
   }
 }
 
