@@ -33,6 +33,7 @@ export default {
         "config", // Configuration files
         "docs", // Documentation
         "test", // Testing
+        "ai", // AI-related changes
       ],
     ],
     "subject-case": [2, "never", ["start-case", "pascal-case", "upper-case"]],
