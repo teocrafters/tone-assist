@@ -2,7 +2,7 @@
 export default {
   extends: ["@commitlint/config-conventional"],
   rules: {
-    // Custom rules for RTA project
+    // Custom rules for ToneAssist project
     "type-enum": [
       2,
       "always",

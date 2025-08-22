@@ -1,6 +1,6 @@
-# Quality Standards for Real-Time Audio Analysis
+# Quality Standards for ToneAssist Audio Analysis
 
-Core quality standards for the RTA project focusing on audio processing
+Core quality standards for the ToneAssist project focusing on audio processing
 correctness, real-time performance, and maintainable code patterns.
 
 ## Audio Engineering Standards
@@ -199,7 +199,7 @@ correctness, real-time performance, and maintainable code patterns.
 
 ## Success Criteria
 
-A quality RTA implementation:
+A quality ToneAssist implementation:
 
 - PROCESSES audio in real-time without dropouts or artifacts
 - RENDERS smooth 60fps visualizations across all target devices

@@ -34,9 +34,9 @@ arguments:
 
 ## Context
 
-- **Current directory**: !`pwd`
-- **Project type**: Real-Time Audio Analyzer (RTA) PWA
-- **Commit format**: `<type>(<scope>): <description>`
+- **Current directory**: Current working directory
+- **Project type**: ToneAssist Professional Audio Analyzer PWA
+- **Commit format**: <type>(<scope>): <description>
 - **Audio focus**: Web Audio API, canvas rendering, real-time processing
 - **Performance critical**: Changes affect real-time audio/visual performance
 
@@ -55,8 +55,9 @@ arguments:
 
 ### Breaking Changes
 
-- Add `!` after type: `feat(audio)!: redesign filter cascade implementation`
-- Or add `BREAKING CHANGE:` in commit body with migration guide
+- For breaking changes, add an exclamation mark (!) after the type Example
+  format: feat(audio)!: redesign filter cascade implementation
+- Or add BREAKING CHANGE: in commit body with migration guide
 
 ## Audio-Specific Scopes
 
@@ -82,9 +83,9 @@ Run these commands before committing audio changes:
 git status
 
 # Review audio-related changes
-git diff --staged -- "src/composables/`useAudioGraph.ts`"
-git diff --staged -- "src/components/`RtaCanvas.vue`"
-git diff --staged -- "src/stores/`audioStore.ts`"
+git diff --staged -- "src/composables/useAudioGraph.ts"
+git diff --staged -- "src/components/RtaCanvas.vue"
+git diff --staged -- "src/stores/audioStore.ts"
 
 # Run quality checks specific to audio
 pnpm lint
@@ -116,7 +117,7 @@ pnpm build && pnpm preview  # Test production build
 ```bash
 # Test critical audio paths
 # - Chrome: Full Web Audio API support
-# - Safari: PWA installation, `AudioContext` restrictions
+# - Safari: PWA installation, AudioContext restrictions
 # - Firefox: Alternative implementation differences
 ```
 
@@ -147,11 +148,11 @@ feat(filters): implement adaptive filter Q factor
 ### Performance Optimizations
 
 ```bash
-perf(canvas): optimize RTA rendering for 60fps
+perf(canvas): optimize audio analysis rendering for 60fps
 
-- Pre-allocate `Float32Array` buffers to eliminate GC
+- Pre-allocate Float32Array buffers to eliminate GC
 - Batch canvas drawing operations for efficiency
-- Implement object pooling for `Path2D` objects
+- Implement object pooling for Path2D objects
 - Reduce render time from 12ms to 4ms average
 
 Performance impact: 3x faster rendering, stable 60fps
@@ -169,10 +170,10 @@ perf(audio): reduce audio processing latency
 ### Bug Fixes
 
 ```bash
-fix(audio): resolve Safari `AudioContext` suspension
+fix(audio): resolve Safari AudioContext suspension
 
-- Add explicit `resume()` call after user gesture
-- Handle `AudioContext` state transitions properly
+- Add explicit resume() call after user gesture
+- Handle AudioContext state transitions properly
 - Implement retry logic for suspended contexts
 - Test on iOS Safari 15.4+ and macOS Safari
 
@@ -272,15 +273,15 @@ pnpm lint && pnpm test && pnpm build
 # - Test on different browsers if possible
 
 # 4. Stage appropriate files
-git add src/composables/`useAudioGraph.ts`
-git add src/components/`RtaCanvas.vue`
-git add src/stores/`audioStore.ts`
-git add src/utils/`audioUtils.ts`
+git add src/composables/useAudioGraph.ts
+git add src/components/RtaCanvas.vue
+git add src/stores/audioStore.ts
+git add src/utils/audioUtils.ts
 
 # 5. Create descriptive commit
 git commit -m "feat(audio): add real-time spectrum smoothing
 
-- Implement exponential smoothing for RTA display
+- Implement exponential smoothing for audio analysis display
 - Add configurable smoothing time constant (0.1-0.9)
 - Reduce visual flicker during rapid signal changes
 - Maintain frequency resolution for transient detection
@@ -292,11 +293,11 @@ Improves visual stability without affecting frequency accuracy"
 ### Performance Optimization Commit
 
 ```bash
-git add src/components/`RtaCanvas.vue`
+git add src/components/RtaCanvas.vue
 git commit -m "perf(canvas): eliminate allocations in render loop
 
-- Pre-allocate all `Float32Array` buffers during initialization
-- Reuse `Path2D` objects across animation frames
+- Pre-allocate all Float32Array buffers during initialization
+- Reuse Path2D objects across animation frames
 - Batch canvas drawing operations for efficiency
 - Move color calculations outside per-pixel loop
 
@@ -308,7 +309,7 @@ Performance impact:
 
 ## Success Criteria
 
-A successful RTA commit:
+A successful ToneAssist commit:
 
 - **CLEARLY describes** the audio/visual impact of changes
 - **VALIDATES** real-time performance requirements are met

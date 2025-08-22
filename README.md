@@ -1,14 +1,14 @@
-# RTA - Real-Time Audio Analyzer
+# ToneAssist - Professional Audio Analyzer
 
 A Progressive Web App for real-time audio analysis with adjustable HPF/LPF
 filters and stereo support.
 
 ## Overview
 
-RTA is a web-based real-time audio analyzer designed for professional audio
-monitoring and analysis. It provides live spectral analysis with interactive
-filter controls, supporting both mono and stereo audio sources through the Web
-Audio API.
+ToneAssist is a web-based professional audio analyzer designed for real-time
+audio monitoring and analysis. It provides live spectral analysis with
+interactive filter controls, supporting both mono and stereo audio sources
+through the Web Audio API.
 
 ## Tech Stack
 

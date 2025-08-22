@@ -11,9 +11,10 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "apple-touch-icon.png"],
       manifest: {
-        name: "RTA Filter",
-        short_name: "RTA",
-        description: "Real-Time Audio Analyzer with HPF/LPF filters",
+        name: "ToneAssist",
+        short_name: "ToneAssist",
+        description:
+          "Professional audio analysis tool with real-time filtering",
         display: "standalone",
         orientation: "portrait",
         background_color: "#000000",

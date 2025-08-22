@@ -1,11 +1,11 @@
-# Claude Code Instructions for RTA Project
+# Claude Code Instructions for ToneAssist Project
 
 ## Project Overview
 
-RTA (Real-Time Audio Analyzer) is a Progressive Web App for professional audio
-analysis built with `Vue 3`, `TypeScript`, and the `Web Audio API`. The
-application provides real-time spectral analysis with interactive HPF/LPF
-filters and stereo channel support.
+ToneAssist is a Progressive Web App for professional audio analysis built with
+`Vue 3`, `TypeScript`, and the `Web Audio API`. The application provides
+real-time spectral analysis with interactive HPF/LPF filters and stereo channel
+support.
 
 ## Tech Stack & Architecture
 

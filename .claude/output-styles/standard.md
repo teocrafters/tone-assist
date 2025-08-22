@@ -7,8 +7,9 @@ description:
 
 # Standard Output Style
 
-This is the default output style for most RTA development tasks, providing clear
-explanations with practical implementation guidance for audio and canvas work.
+This is the default output style for most ToneAssist development tasks,
+providing clear explanations with practical implementation guidance for audio
+and canvas work.
 
 ## Response Characteristics
 
