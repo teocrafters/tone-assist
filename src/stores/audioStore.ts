@@ -1,37 +1,37 @@
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { defineStore } from "pinia"
+import { ref } from "vue"
 
-export type ChannelMode = 'mono' | 'stereo' | 'auto'
-export type RtaMode = 'input' | 'output'
+export type ChannelMode = "mono" | "stereo" | "auto"
+export type RtaMode = "input" | "output"
 
 export interface ActiveChannels {
   left: boolean
   right: boolean
 }
 
-export const useAudioStore = defineStore('audio', () => {
+export const useAudioStore = defineStore("audio", () => {
   const isInitialized = ref(false)
   const isStarted = ref(false)
   const hasPermission = ref(false)
-  const errorMessage = ref('')
-  
+  const errorMessage = ref("")
+
   const hpfCutoff = ref(80)
   const lpfCutoff = ref(12000)
   const minFilterDistance = ref(10) // Minimum 10Hz between HPF and LPF
 
   // Stereo channel management
-  const channelMode = ref<ChannelMode>('auto')
+  const channelMode = ref<ChannelMode>("auto")
   const inputChannelCount = ref(1)
   const activeChannels = ref<ActiveChannels>({
     left: true,
-    right: false
+    right: false,
   })
 
   // Boost control
   const boostEnabled = ref(false)
 
   // RTA display mode
-  const rtaMode = ref<RtaMode>('output')
+  const rtaMode = ref<RtaMode>("output")
 
   const setHpfCutoff = (frequency: number) => {
     const maxHpf = lpfCutoff.value - minFilterDistance.value
@@ -55,14 +55,16 @@ export const useAudioStore = defineStore('audio', () => {
     inputChannelCount.value = count
   }
 
-  const getEffectiveChannelMode = (): 'mono' | 'stereo' => {
-    if (channelMode.value === 'mono') return 'mono'
-    if (channelMode.value === 'stereo') return 'stereo'
-    
+  const getEffectiveChannelMode = (): "mono" | "stereo" => {
+    if (channelMode.value === "mono") return "mono"
+    if (channelMode.value === "stereo") return "stereo"
+
     // Auto mode: use stereo if both channels active and input is stereo
-    return (inputChannelCount.value >= 2 && activeChannels.value.left && activeChannels.value.right) 
-      ? 'stereo' 
-      : 'mono'
+    return inputChannelCount.value >= 2 &&
+      activeChannels.value.left &&
+      activeChannels.value.right
+      ? "stereo"
+      : "mono"
   }
 
   const toggleBoost = (): boolean => {
@@ -75,7 +77,7 @@ export const useAudioStore = defineStore('audio', () => {
   }
 
   const toggleRtaMode = (): RtaMode => {
-    rtaMode.value = rtaMode.value === 'input' ? 'output' : 'input'
+    rtaMode.value = rtaMode.value === "input" ? "output" : "input"
     return rtaMode.value
   }
 
@@ -88,7 +90,7 @@ export const useAudioStore = defineStore('audio', () => {
   }
 
   const clearError = () => {
-    errorMessage.value = ''
+    errorMessage.value = ""
   }
 
   return {
@@ -115,6 +117,6 @@ export const useAudioStore = defineStore('audio', () => {
     toggleRtaMode,
     setRtaMode,
     setError,
-    clearError
+    clearError,
   }
 })

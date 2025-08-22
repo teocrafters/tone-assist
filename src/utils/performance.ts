@@ -10,8 +10,9 @@ export function updateFPS(): void {
   frameCount++
   const currentTime = performance.now()
   const deltaTime = currentTime - lastFrameTime
-  
-  if (deltaTime >= 1000) { // Calculate FPS every second
+
+  if (deltaTime >= 1000) {
+    // Calculate FPS every second
     fps = Math.round((frameCount * 1000) / deltaTime)
     frameCount = 0
     lastFrameTime = currentTime
@@ -36,7 +37,7 @@ export class FrameBudgetManager {
 
   hasTimeBudget(minRemainingMs = 2): boolean {
     const elapsed = performance.now() - this.frameStartTime
-    return elapsed < (this.targetFrameTime - minRemainingMs)
+    return elapsed < this.targetFrameTime - minRemainingMs
   }
 
   getElapsedTime(): number {

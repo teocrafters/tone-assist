@@ -13,7 +13,7 @@ export class AudioBufferPool {
   returnBuffer(buffer: Float32Array): void {
     const size = buffer.length
     const pool = this.pools.get(size) || []
-    
+
     if (pool.length < this.maxPoolSize) {
       // Clear buffer before returning to pool
       buffer.fill(0)
@@ -40,8 +40,9 @@ export function optimizedAggregation(
 
   // Exponential smoothing for more stable visualization
   for (let i = 0; i < floatFreqData.length; i++) {
-    previousResult[i] = previousResult[i] * (1 - smoothingFactor) + 
-                       floatFreqData[i] * smoothingFactor
+    previousResult[i] =
+      previousResult[i] * (1 - smoothingFactor) +
+      floatFreqData[i] * smoothingFactor
   }
 
   return previousResult

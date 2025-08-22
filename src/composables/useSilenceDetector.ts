@@ -1,5 +1,5 @@
-import { ref } from 'vue'
-import type { ActiveChannels } from '@/stores/audioStore'
+import { ref } from "vue"
+import type { ActiveChannels } from "@/stores/audioStore"
 
 interface SilenceState {
   left: {
@@ -15,15 +15,15 @@ interface SilenceState {
 export function useSilenceDetector() {
   const SILENCE_THRESHOLD_DB = -60 // dB
   const SILENCE_DURATION_MS = 500 // milliseconds
-  
+
   const silenceState = ref<SilenceState>({
     left: { isSilent: false, silenceStartTime: null },
-    right: { isSilent: false, silenceStartTime: null }
+    right: { isSilent: false, silenceStartTime: null },
   })
 
   const activeChannels = ref<ActiveChannels>({
     left: true,
-    right: false
+    right: false,
   })
 
   function dbToLinear(db: number): number {
@@ -40,16 +40,16 @@ export function useSilenceDetector() {
   }
 
   function updateChannelActivity(
-    channel: 'left' | 'right',
+    channel: "left" | "right",
     freqData: Float32Array,
     currentTime: number
   ): boolean {
     const rms = calculateRMS(freqData)
     const rmsDb = 20 * Math.log10(Math.max(1e-10, rms))
     const isBelowThreshold = rmsDb < SILENCE_THRESHOLD_DB
-    
+
     const channelState = silenceState.value[channel]
-    
+
     if (isBelowThreshold) {
       // Signal is below threshold
       if (channelState.silenceStartTime === null) {
@@ -68,7 +68,7 @@ export function useSilenceDetector() {
       channelState.silenceStartTime = null
       channelState.isSilent = false
     }
-    
+
     return !channelState.isSilent
   }
 
@@ -77,24 +77,32 @@ export function useSilenceDetector() {
     rightFreqData: Float32Array | null
   ): ActiveChannels {
     const currentTime = performance.now()
-    
+
     const newActiveChannels: ActiveChannels = {
-      left: leftFreqData ? updateChannelActivity('left', leftFreqData, currentTime) : false,
-      right: rightFreqData ? updateChannelActivity('right', rightFreqData, currentTime) : false
+      left: leftFreqData
+        ? updateChannelActivity("left", leftFreqData, currentTime)
+        : false,
+      right: rightFreqData
+        ? updateChannelActivity("right", rightFreqData, currentTime)
+        : false,
     }
-    
+
     // Ensure at least one channel is always active if any data is available
     if (!newActiveChannels.left && !newActiveChannels.right) {
       if (leftFreqData) newActiveChannels.left = true
       else if (rightFreqData) newActiveChannels.right = true
     }
-    
+
     // Log channel state changes for debugging
-    if (activeChannels.value.left !== newActiveChannels.left || 
-        activeChannels.value.right !== newActiveChannels.right) {
-      console.log(`Channel activity changed: L:${newActiveChannels.left} R:${newActiveChannels.right}`)
+    if (
+      activeChannels.value.left !== newActiveChannels.left ||
+      activeChannels.value.right !== newActiveChannels.right
+    ) {
+      console.log(
+        `Channel activity changed: L:${newActiveChannels.left} R:${newActiveChannels.right}`
+      )
     }
-    
+
     activeChannels.value = newActiveChannels
     return newActiveChannels
   }
@@ -102,7 +110,7 @@ export function useSilenceDetector() {
   function reset() {
     silenceState.value = {
       left: { isSilent: false, silenceStartTime: null },
-      right: { isSilent: false, silenceStartTime: null }
+      right: { isSilent: false, silenceStartTime: null },
     }
     activeChannels.value = { left: true, right: false }
   }
@@ -111,6 +119,6 @@ export function useSilenceDetector() {
     activeChannels,
     silenceState,
     updateSilenceDetection,
-    reset
+    reset,
   }
 }

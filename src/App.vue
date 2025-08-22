@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RtaCanvas from './components/RtaCanvas.vue'
+import RtaCanvas from "./components/RtaCanvas.vue"
 </script>
 
 <template>
@@ -15,11 +15,13 @@ import RtaCanvas from './components/RtaCanvas.vue'
   box-sizing: border-box;
 }
 
-html, body, #app {
+html,
+body,
+#app {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 #app {
