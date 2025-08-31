@@ -9,13 +9,11 @@ import { useRtaRenderer } from "@/composables/useRtaRenderer"
 import { useCanvasInteractions } from "@/composables/useCanvasInteractions"
 import { useCanvasUI } from "@/composables/useCanvasUI"
 import RtaOverlay from "@/components/ui/RtaOverlay.vue"
-import PresetMenu from "@/components/ui/PresetMenu.vue"
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 const audioStore = useAudioStore()
 const starting = ref(false)
-const showPresetMenu = ref(false)
 
 const {
   analyserLeftInput,
@@ -63,8 +61,8 @@ const { hoverPosition, hoverInfo, onPointerDown, onPointerMove, onPointerUp } =
   )
 
 // Audio data management
-let leftFreqData: Float32Array | null = null
-let rightFreqData: Float32Array | null = null
+let leftFreqData: Float32Array<ArrayBuffer> | null = null
+let rightFreqData: Float32Array<ArrayBuffer> | null = null
 
 async function startAudio() {
   starting.value = true
@@ -170,7 +168,9 @@ function drawSingleModeRTA(
       !leftFreqData ||
       leftFreqData.length !== leftAnalyser.frequencyBinCount
     ) {
-      leftFreqData = new Float32Array(leftAnalyser.frequencyBinCount)
+      leftFreqData = new Float32Array(
+        new ArrayBuffer(leftAnalyser.frequencyBinCount * 4)
+      )
     }
     leftAnalyser.getFloatFrequencyData(leftFreqData)
 
@@ -239,10 +239,10 @@ function drawBothModeRTA(
   height: number
 ) {
   // Get both input and output data
-  let leftInputData: Float32Array | null = null
-  let rightInputData: Float32Array | null = null
-  let leftOutputData: Float32Array | null = null
-  let rightOutputData: Float32Array | null = null
+  let leftInputData: Float32Array<ArrayBuffer> | null = null
+  let rightInputData: Float32Array<ArrayBuffer> | null = null
+  let leftOutputData: Float32Array<ArrayBuffer> | null = null
+  let rightOutputData: Float32Array<ArrayBuffer> | null = null
 
   // Get input data
   if (analyserLeftInput.value) {
@@ -398,10 +398,6 @@ onBeforeUnmount(() => {
       @pointerleave="onPointerUp" />
 
     <RtaOverlay :starting="starting" @start-audio="startAudio" />
-
-    <PresetMenu
-      v-model:show-menu="showPresetMenu"
-      :update-all-filter-nodes="updateAllFilterNodes" />
   </div>
 </template>
 

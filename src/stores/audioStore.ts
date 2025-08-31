@@ -9,24 +9,6 @@ export interface ActiveChannels {
   right: boolean
 }
 
-export interface FilterPreset {
-  name: string
-  hpf: number
-  lpf: number
-  description: string
-}
-
-export const FILTER_PRESETS: FilterPreset[] = [
-  { name: "Voice", hpf: 300, lpf: 3400, description: "Human voice range" },
-  { name: "Bass", hpf: 20, lpf: 250, description: "Bass frequencies" },
-  { name: "Mid", hpf: 250, lpf: 4000, description: "Midrange frequencies" },
-  { name: "Treble", hpf: 4000, lpf: 20000, description: "High frequencies" },
-  { name: "Kick", hpf: 40, lpf: 100, description: "Kick drum fundamentals" },
-  { name: "Snare", hpf: 150, lpf: 6000, description: "Snare drum range" },
-  { name: "Cymbals", hpf: 6000, lpf: 20000, description: "Cymbal brilliance" },
-  { name: "Wide", hpf: 20, lpf: 20000, description: "Full spectrum" },
-]
-
 export const useAudioStore = defineStore("audio", () => {
   const isInitialized = ref(false)
   const isStarted = ref(false)
@@ -158,18 +140,6 @@ export const useAudioStore = defineStore("audio", () => {
     fixedDistance.value = Math.max(minFilterDistance.value, distance)
   }
 
-  const applyPreset = (preset: FilterPreset) => {
-    if (fixedDistanceEnabled.value) {
-      // In fixed mode, adjust to maintain current distance
-      const currentDistance = lpfCutoff.value - hpfCutoff.value
-      hpfCutoff.value = preset.hpf
-      lpfCutoff.value = preset.hpf + currentDistance
-    } else {
-      hpfCutoff.value = preset.hpf
-      lpfCutoff.value = preset.lpf
-    }
-  }
-
   const setError = (message: string) => {
     errorMessage.value = message
   }
@@ -207,7 +177,6 @@ export const useAudioStore = defineStore("audio", () => {
     toggleFixedDistance,
     setFixedDistance,
     togglePowerSave,
-    applyPreset,
     setError,
     clearError,
   }
