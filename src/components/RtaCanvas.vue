@@ -61,8 +61,8 @@ const { hoverPosition, hoverInfo, onPointerDown, onPointerMove, onPointerUp } =
   )
 
 // Audio data management
-let leftFreqData: Float32Array<ArrayBuffer> | null = null
-let rightFreqData: Float32Array<ArrayBuffer> | null = null
+let leftFreqData: Float32Array | null = null
+let rightFreqData: Float32Array | null = null
 
 async function startAudio() {
   starting.value = true

@@ -7,7 +7,7 @@ import {
 import { useAudioStore } from "@/stores/audioStore"
 import type { RenderingData } from "./useRtaRenderer"
 
-const HANDLE_WIDTH = 20 // pixels
+import { HANDLE_WIDTH } from "@/constants/canvas"
 
 export function useCanvasInteractions(
   canvasRef: Ref<HTMLCanvasElement | null>,
