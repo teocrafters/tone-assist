@@ -168,9 +168,7 @@ function drawSingleModeRTA(
       !leftFreqData ||
       leftFreqData.length !== leftAnalyser.frequencyBinCount
     ) {
-      leftFreqData = new Float32Array(
-        new ArrayBuffer(leftAnalyser.frequencyBinCount * 4)
-      )
+      leftFreqData = new Float32Array(leftAnalyser.frequencyBinCount)
     }
     leftAnalyser.getFloatFrequencyData(leftFreqData)
 
