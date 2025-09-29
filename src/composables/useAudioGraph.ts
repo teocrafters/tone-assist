@@ -235,17 +235,27 @@ export function useAudioGraph() {
   function setHpfCutoff(frequency: number) {
     audioStore.setHpfCutoff(frequency)
     // Update both left and right channel filters
+    // In fixed distance mode, both HPF and LPF values might have changed
+    updateAllFilterNodes()
+  }
+
+  function setLpfCutoff(frequency: number) {
+    audioStore.setLpfCutoff(frequency)
+    // Update both left and right channel filters
+    // In fixed distance mode, both HPF and LPF values might have changed
+    updateAllFilterNodes()
+  }
+
+  function updateAllFilterNodes() {
+    // Update all HPF nodes
     leftHpfNodes.forEach((node) => {
       node.frequency.value = audioStore.hpfCutoff
     })
     rightHpfNodes.forEach((node) => {
       node.frequency.value = audioStore.hpfCutoff
     })
-  }
 
-  function setLpfCutoff(frequency: number) {
-    audioStore.setLpfCutoff(frequency)
-    // Update both left and right channel filters
+    // Update all LPF nodes
     leftLpfNodes.forEach((node) => {
       node.frequency.value = audioStore.lpfCutoff
     })
@@ -353,6 +363,7 @@ export function useAudioGraph() {
     stop,
     setHpfCutoff,
     setLpfCutoff,
+    updateAllFilterNodes,
     updateAudioRouting,
     setBoost,
   }

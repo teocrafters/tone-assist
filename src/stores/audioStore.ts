@@ -2,7 +2,7 @@ import { defineStore } from "pinia"
 import { ref } from "vue"
 
 export type ChannelMode = "mono" | "stereo" | "auto"
-export type RtaMode = "input" | "output"
+export type RtaMode = "input" | "output" | "both"
 
 export interface ActiveChannels {
   left: boolean
@@ -18,6 +18,8 @@ export const useAudioStore = defineStore("audio", () => {
   const hpfCutoff = ref(80)
   const lpfCutoff = ref(12000)
   const minFilterDistance = ref(10) // Minimum 10Hz between HPF and LPF
+  const fixedDistanceEnabled = ref(false) // Enable/disable fixed distance mode
+  const fixedDistance = ref(1000) // Fixed distance in Hz when mode is enabled
 
   // Stereo channel management
   const channelMode = ref<ChannelMode>("auto")
@@ -33,14 +35,43 @@ export const useAudioStore = defineStore("audio", () => {
   // RTA display mode
   const rtaMode = ref<RtaMode>("output")
 
+  // Power saving mode
+  const powerSaveMode = ref(false)
+
   const setHpfCutoff = (frequency: number) => {
-    const maxHpf = lpfCutoff.value - minFilterDistance.value
-    hpfCutoff.value = Math.max(20, Math.min(maxHpf, frequency))
+    if (fixedDistanceEnabled.value) {
+      // In fixed distance mode, moving HPF also moves LPF
+      const newHpf = Math.max(
+        20,
+        Math.min(20000 - fixedDistance.value, frequency)
+      )
+      const newLpf = newHpf + fixedDistance.value
+
+      hpfCutoff.value = newHpf
+      lpfCutoff.value = Math.min(20000, newLpf)
+    } else {
+      // Original behavior with minimum distance constraint
+      const maxHpf = lpfCutoff.value - minFilterDistance.value
+      hpfCutoff.value = Math.max(20, Math.min(maxHpf, frequency))
+    }
   }
 
   const setLpfCutoff = (frequency: number) => {
-    const minLpf = hpfCutoff.value + minFilterDistance.value
-    lpfCutoff.value = Math.max(minLpf, Math.min(20000, frequency))
+    if (fixedDistanceEnabled.value) {
+      // In fixed distance mode, moving LPF also moves HPF
+      const newLpf = Math.max(
+        fixedDistance.value + 20,
+        Math.min(20000, frequency)
+      )
+      const newHpf = newLpf - fixedDistance.value
+
+      lpfCutoff.value = newLpf
+      hpfCutoff.value = Math.max(20, newHpf)
+    } else {
+      // Original behavior with minimum distance constraint
+      const minLpf = hpfCutoff.value + minFilterDistance.value
+      lpfCutoff.value = Math.max(minLpf, Math.min(20000, frequency))
+    }
   }
 
   const setActiveChannels = (channels: ActiveChannels) => {
@@ -77,12 +108,36 @@ export const useAudioStore = defineStore("audio", () => {
   }
 
   const toggleRtaMode = (): RtaMode => {
-    rtaMode.value = rtaMode.value === "input" ? "output" : "input"
+    const modes: RtaMode[] = ["input", "output", "both"]
+    const currentIndex = modes.indexOf(rtaMode.value)
+    const nextIndex = (currentIndex + 1) % modes.length
+    rtaMode.value = modes[nextIndex]
     return rtaMode.value
   }
 
   const setRtaMode = (mode: RtaMode) => {
     rtaMode.value = mode
+  }
+
+  const togglePowerSave = (): boolean => {
+    powerSaveMode.value = !powerSaveMode.value
+    return powerSaveMode.value
+  }
+
+  const toggleFixedDistance = (): boolean => {
+    fixedDistanceEnabled.value = !fixedDistanceEnabled.value
+    if (fixedDistanceEnabled.value) {
+      // When enabling, set the fixed distance to current distance
+      fixedDistance.value = Math.max(
+        minFilterDistance.value,
+        lpfCutoff.value - hpfCutoff.value
+      )
+    }
+    return fixedDistanceEnabled.value
+  }
+
+  const setFixedDistance = (distance: number) => {
+    fixedDistance.value = Math.max(minFilterDistance.value, distance)
   }
 
   const setError = (message: string) => {
@@ -101,11 +156,14 @@ export const useAudioStore = defineStore("audio", () => {
     hpfCutoff,
     lpfCutoff,
     minFilterDistance,
+    fixedDistanceEnabled,
+    fixedDistance,
     channelMode,
     inputChannelCount,
     activeChannels,
     boostEnabled,
     rtaMode,
+    powerSaveMode,
     setHpfCutoff,
     setLpfCutoff,
     setActiveChannels,
@@ -116,6 +174,9 @@ export const useAudioStore = defineStore("audio", () => {
     setBoost,
     toggleRtaMode,
     setRtaMode,
+    toggleFixedDistance,
+    setFixedDistance,
+    togglePowerSave,
     setError,
     clearError,
   }
