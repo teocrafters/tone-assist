@@ -1,7 +1,6 @@
 import { frequencyToLogX } from "@/utils/logBands"
 import { useAudioStore } from "@/stores/audioStore"
-
-const HANDLE_WIDTH = 20
+import { HANDLE_WIDTH } from "@/constants/canvas"
 
 export function useCanvasUI() {
   const audioStore = useAudioStore()
