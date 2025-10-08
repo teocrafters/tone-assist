@@ -4,7 +4,7 @@ description: Initialize the Node.js, pnpm & cache the pnpm store
 runs:
   using: "composite"
   steps:
-    - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+    - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
       name: Install pnpm
       with:
         run_install: false
@@ -20,7 +20,7 @@ runs:
       run: |
         echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-    - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       name: Setup pnpm cache
       with:
         path: ${{ env.STORE_PATH }}
